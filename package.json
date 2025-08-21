@@ -5,5 +5,11 @@
   "keywords": [],
   "author": "Maifee Ul Asad<maifeeulasad@gmail.com>",
   "license": "MIT",
-  "packageManager": "pnpm@10.8.0"
+  "packageManager": "pnpm@10.8.0",
+  "peerDependencies": {
+    "@babel/generator": "^7.23.0",
+    "@babel/parser": "^7.23.0",
+    "@babel/traverse": "^7.23.0",
+    "@babel/types": "^7.23.0"
+  }
 }
