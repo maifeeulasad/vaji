@@ -1,8 +1,8 @@
 {
   "name": "vaji",
   "version": "0.0.0",
-  "description": "",
-  "keywords": [],
+  "description": "Vaji: Plugin for live editing UI",
+  "keywords": ["vite", "react", "live-editor", "plugin"],
   "author": "Maifee Ul Asad<maifeeulasad@gmail.com>",
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
