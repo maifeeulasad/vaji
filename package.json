@@ -6,6 +6,9 @@
   "author": "Maifee Ul Asad<maifeeulasad@gmail.com>",
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
+  "scripts": {
+    "build": "rm -rf dist && tsc"
+  },
   "dependencies": {
     "@babel/generator": "^7.23.0",
     "@babel/parser": "^7.23.0",
