@@ -382,6 +382,7 @@ function viteReactLiveEditor(options: IViteReactLiveEditor = {}): PluginOption {
         console.debug('Resolving virtual module:', id);
         return id;
       }
+      return null;
     },
 
     load(id: string) {
@@ -760,6 +761,7 @@ export function EditableImage({ elementId, filePath, initialSrc, imageType, impo
 }
 `;
       }
+      return null;
     }
   };
 }
