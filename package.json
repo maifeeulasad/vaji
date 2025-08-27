@@ -9,6 +9,9 @@
   "scripts": {
     "build": "rm -rf dist && tsc"
   },
+  "files": [
+    "dist/"
+  ],
   "dependencies": {
     "@babel/generator": "^7.23.0",
     "@babel/parser": "^7.23.0",
