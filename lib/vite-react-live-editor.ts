@@ -85,6 +85,7 @@ function viteReactLiveEditor(options: IViteReactLiveEditor = {}): PluginOption {
             const elementId = Array.isArray(fields.elementId) ? fields.elementId[0] : fields.elementId;
             const imageType = Array.isArray(fields.imageType) ? fields.imageType[0] : fields.imageType;
             const newValue = Array.isArray(fields.newValue) ? fields.newValue[0] : fields.newValue;
+            const originalValue = Array.isArray(fields.originalValue) ? fields.originalValue[0] : fields.originalValue;
             const importName = Array.isArray(fields.importName) ? fields.importName[0] : fields.importName;
 
             if (!filePath || !elementId || !newValue) {
@@ -114,11 +115,20 @@ function viteReactLiveEditor(options: IViteReactLiveEditor = {}): PluginOption {
               }
             }
 
+            console.debug('DEBUG: Processing image update with values:', {
+              elementId,
+              newValue,
+              originalValue,
+              finalValue,
+              imageType,
+              importName
+            });
+
             const updates = [{
               elementId,
               type: 'image' as const,
               newValue: finalValue,
-              originalValue: newValue,
+              originalValue: originalValue,
               imageType: imageType as 'url' | 'import',
               importName
             }];
@@ -307,6 +317,10 @@ function viteReactLiveEditor(options: IViteReactLiveEditor = {}): PluginOption {
                       t.jsxAttribute(
                         t.jsxIdentifier('importName'),
                         t.stringLiteral(importName)
+                      ),
+                      t.jsxAttribute(
+                        t.jsxIdentifier('originalValue'),
+                        t.stringLiteral(srcValue)
                       ),
                       // Copy over other attributes
                       ...openingElement.attributes.filter((attr: any) =>
@@ -502,7 +516,7 @@ export function useEditableClassName(elementId, filePath, initialValue) {
   return value;
 }
 
-export function EditableImage({ elementId, filePath, initialSrc, imageType, importName, ...otherProps }) {
+export function EditableImage({ elementId, filePath, initialSrc, imageType, importName, originalValue, ...otherProps }) {
   const [isEditing, setIsEditing] = useState(false);
   const [currentSrc, setCurrentSrc] = useState(initialSrc);
   const [isHovered, setIsHovered] = useState(false);
@@ -511,18 +525,31 @@ export function EditableImage({ elementId, filePath, initialSrc, imageType, impo
   const handleSave = async (newValue, file = null) => {
     try {
       console.debug('Saving image changes:', { elementId, filePath, newValue, file, uploadMode });
+      console.debug('Values for form submission:', {
+        elementId,
+        initialSrc,
+        originalValue,
+        newValue,
+        imageType,
+        importName
+      });
       
       const formData = new FormData();
       formData.append('elementId', elementId);
       formData.append('type', 'image');
       formData.append('filePath', filePath);
       formData.append('newValue', newValue);
-      formData.append('originalValue', initialSrc);
+      formData.append('originalValue', originalValue);
       formData.append('imageType', uploadMode);
       formData.append('importName', importName);
       
       if (file) {
         formData.append('file', file);
+        console.debug('File upload - File details:', {
+          name: file.name,
+          size: file.size,
+          type: file.type
+        });
       }
       
       const response = await fetch('/vaji-internal/update-component', {
@@ -531,16 +558,25 @@ export function EditableImage({ elementId, filePath, initialSrc, imageType, impo
       });
       
       if (response.ok) {
-        console.debug('Successfully saved image changes');
-        setCurrentSrc(newValue);
+        const result = await response.json();
+        console.debug('Successfully saved image changes:', result);
+        
+        // Use the actual uploaded image path from server response if available
+        const actualImageSrc = result.newSrc || newValue;
+        console.debug('Setting image src from', currentSrc, 'to', actualImageSrc);
+        setCurrentSrc(actualImageSrc);
         setIsEditing(false);
-        // Trigger hot reload
-        window.location.reload();
+        
+        // No need to reload the page - HMR will handle the update
+        console.debug('Image updated to:', actualImageSrc);
       } else {
-        console.error('Failed to save image changes:', response.statusText);
+        const errorText = await response.text();
+        console.error('Failed to save image changes:', response.statusText, errorText);
+        console.error('Server response:', errorText);
       }
     } catch (error) {
       console.error('Failed to update image:', error);
+      console.error('Error details:', error.message, error.stack);
     }
   };
 
@@ -789,134 +825,80 @@ async function updateComponentFile(filePath: string, updates: UpdateRequest[]) {
           }
         });
       } else if (update.type === 'image') {
-        console.debug('Updating image:', update);
+        console.debug('Updating image in source file:', update);
 
-        // Handle image updates
+        // find the img element by its src value to update images in the source file, not the transformed version.
+        let imageFound = false;
         traverse(ast, {
           JSXElement(path: any) {
+            if (imageFound) return;
+            
             const openingElement = path.node.openingElement;
 
-            // Look for EditableImage components (after transformation) or img elements (before transformation)
-            if (openingElement.name && (openingElement.name.name === 'img' || openingElement.name.name === 'EditableImage')) {
+            // Only look for original img elements in the source file
+            if (openingElement.name && openingElement.name.name === 'img') {
+              const srcAttribute = openingElement.attributes.find((attr: any) =>
+                attr.type === 'JSXAttribute' && attr.name.name === 'src'
+              );
 
-              // For EditableImage components, check elementId
-              if (openingElement.name.name === 'EditableImage') {
-                const elementIdAttr = openingElement.attributes.find((attr: any) =>
-                  attr.type === 'JSXAttribute' && attr.name.name === 'elementId'
-                );
-
-                if (elementIdAttr && elementIdAttr.value &&
-                  elementIdAttr.value.type === 'StringLiteral' &&
-                  elementIdAttr.value.value === update.elementId) {
-
-                  // Find the initialSrc attribute
-                  const srcAttribute = openingElement.attributes.find((attr: any) =>
-                    attr.type === 'JSXAttribute' && attr.name.name === 'initialSrc'
-                  );
-
-                  if (srcAttribute) {
-                    if (update.imageType === 'url') {
-                      // Update with URL
-                      srcAttribute.value = t.stringLiteral(update.newValue);
-
-                      // Also update imageType attribute
-                      const imageTypeAttr = openingElement.attributes.find((attr: any) =>
-                        attr.type === 'JSXAttribute' && attr.name.name === 'imageType'
-                      );
-                      if (imageTypeAttr) {
-                        imageTypeAttr.value = t.stringLiteral('url');
-                      }
-                    } else if (update.imageType === 'import') {
-                      // For file uploads, we need to add an import and update the src
-                      const imageFileName = update.newValue.replace(/\.[^/.]+$/, ""); // Remove extension
-                      const importName = `${imageFileName}Image${Math.random().toString(36).substr(2, 4)}`;
-
-                      // Add import statement at the top
-                      const importPath = `./images/${update.newValue}`;
-                      const importDeclaration = t.importDeclaration(
-                        [t.importDefaultSpecifier(t.identifier(importName))],
-                        t.stringLiteral(importPath)
-                      );
-
-                      // Add import to the beginning of the file
-                      if (ast && ast.type === 'File' && ast.program) {
-                        ast.program.body.unshift(importDeclaration);
-                      }
-
-                      // Update src to use the import
-                      srcAttribute.value = t.jsxExpressionContainer(t.identifier(importName));
-
-                      // Update imageType and importName attributes
-                      const imageTypeAttr = openingElement.attributes.find((attr: any) =>
-                        attr.type === 'JSXAttribute' && attr.name.name === 'imageType'
-                      );
-                      if (imageTypeAttr) {
-                        imageTypeAttr.value = t.stringLiteral('import');
-                      }
-
-                      const importNameAttr = openingElement.attributes.find((attr: any) =>
-                        attr.type === 'JSXAttribute' && attr.name.name === 'importName'
-                      );
-                      if (importNameAttr) {
-                        importNameAttr.value = t.stringLiteral(importName);
-                      }
-                    }
-
-                    console.debug('Updated EditableImage src:', update.newValue);
+              if (srcAttribute) {
+                let currentSrc = '';
+                
+                // Extract current src value
+                if (srcAttribute.value && srcAttribute.value.type === 'StringLiteral') {
+                  currentSrc = srcAttribute.value.value;
+                } else if (srcAttribute.value && srcAttribute.value.type === 'JSXExpressionContainer') {
+                  const expression = srcAttribute.value.expression;
+                  if (expression.type === 'Identifier') {
+                    currentSrc = expression.name;
                   }
                 }
-              } else {
-                // Handle original img elements (fallback for untransformed code)
-                const srcAttribute = openingElement.attributes.find((attr: any) =>
-                  attr.type === 'JSXAttribute' && attr.name.name === 'src'
-                );
 
-                if (srcAttribute) {
-                  let currentSrc = '';
-                  if (srcAttribute.value && srcAttribute.value.type === 'StringLiteral') {
-                    currentSrc = srcAttribute.value.value;
-                  } else if (srcAttribute.value && srcAttribute.value.type === 'JSXExpressionContainer') {
-                    const expression = srcAttribute.value.expression;
-                    if (expression.type === 'Identifier') {
-                      currentSrc = expression.name;
-                    }
-                  }
+                console.debug('Checking img with src:', currentSrc, 'against originalValue:', update.originalValue);
 
-                  // Check if this is the image we want to update
-                  if (currentSrc === update.originalValue ||
-                    (update.importName && currentSrc === update.importName)) {
+                // todo: improve matching logic, maybe use elementId or other attributes
+                if (currentSrc === update.originalValue ||
+                  (update.importName && currentSrc === update.importName)) {
 
-                    if (update.imageType === 'url') {
-                      // Update with URL
-                      srcAttribute.value = t.stringLiteral(update.newValue);
-                    } else if (update.imageType === 'import') {
-                      // For file uploads, we need to add an import and update the src
-                      const imageFileName = update.newValue.replace(/\.[^/.]+$/, "");
-                      const importName = `${imageFileName}Image${Math.random().toString(36).substr(2, 4)}`;
+                  console.debug('Found matching image, updating from', currentSrc, 'to', update.newValue);
 
-                      // Add import statement
-                      const importPath = `./images/${update.newValue}`;
-                      const importDeclaration = t.importDeclaration(
-                        [t.importDefaultSpecifier(t.identifier(importName))],
-                        t.stringLiteral(importPath)
-                      );
+                  if (update.imageType === 'url') {
+                    // Update with URL
+                    srcAttribute.value = t.stringLiteral(update.newValue);
+                    imageFound = true;
+                    console.debug('Updated img src to URL:', update.newValue);
+                  } else if (update.imageType === 'import' || update.imageType === 'file') {
+                    // For file uploads, we need to add an import and update the src
+                    const fileName = update.newValue.replace(/^.*\//, ''); // Get just the filename
+                    const imageFileName = fileName.replace(/\.[^/.]+$/, ""); // Remove extension
+                    const importName = `${imageFileName}Image${Math.random().toString(36).substr(2, 4)}`;
 
-                      // Add import to the beginning of the file
-                      if (ast && ast.type === 'File' && ast.program) {
-                        ast.program.body.unshift(importDeclaration);
-                      }
+                    // Add import statement
+                    const importPath = update.newValue.startsWith('/') ? update.newValue : `/images/${fileName}`;
+                    const importDeclaration = t.importDeclaration(
+                      [t.importDefaultSpecifier(t.identifier(importName))],
+                      t.stringLiteral(importPath)
+                    );
 
-                      // Update src to use the import
-                      srcAttribute.value = t.jsxExpressionContainer(t.identifier(importName));
+                    // Add import to the beginning of the file
+                    if (ast && ast.type === 'File' && ast.program) {
+                      ast.program.body.unshift(importDeclaration);
                     }
 
-                    console.debug('Updated img src:', update.newValue);
+                    // Update src to use the import
+                    srcAttribute.value = t.jsxExpressionContainer(t.identifier(importName));
+                    imageFound = true;
+                    console.debug('Updated img src to import:', importName, 'from', importPath);
                   }
                 }
               }
             }
           }
         });
+
+        if (!imageFound) {
+          console.error('Could not find image to update with originalValue:', update.originalValue);
+        }
       }
     }
 
