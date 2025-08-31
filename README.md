@@ -1,5 +1,14 @@
 # vaji
 
+## Installation
+
+Pick command for whichever system you are using.
+```
+npm i vaji
+yarn add vaji
+pnpm add vaji
+```
+
 ## Usage
 
 ### Vite + React
