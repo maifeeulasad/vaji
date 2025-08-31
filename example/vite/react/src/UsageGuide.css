@@ -1,0 +1,70 @@
+.usage-guide {
+  max-width: 800px;
+  margin: 2rem auto;
+  padding: 2rem;
+  background: linear-gradient(135deg, rgba(100, 108, 255, 0.1), rgba(97, 218, 251, 0.1));
+  border-radius: 12px;
+  border: 1px solid rgba(100, 108, 255, 0.2);
+}
+
+.usage-guide h2 {
+  text-align: center;
+  color: #646cff;
+  margin-bottom: 2rem;
+  font-size: 2rem;
+}
+
+.guide-section {
+  margin-bottom: 1.5rem;
+  padding: 1.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border-left: 4px solid #61dafb;
+}
+
+.guide-section h3 {
+  color: #61dafb;
+  margin-bottom: 1rem;
+  font-size: 1.3rem;
+}
+
+.guide-section ul {
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.guide-section li {
+  margin-bottom: 0.5rem;
+  line-height: 1.6;
+  color: #ccc;
+}
+
+.guide-note {
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(255, 193, 7, 0.1);
+  border: 1px solid rgba(255, 193, 7, 0.3);
+  border-radius: 8px;
+}
+
+.guide-note p {
+  margin: 0;
+  color: #ffc107;
+  font-style: italic;
+  text-align: center;
+}
+
+@media (max-width: 768px) {
+  .usage-guide {
+    margin: 1rem;
+    padding: 1rem;
+  }
+  
+  .usage-guide h2 {
+    font-size: 1.5rem;
+  }
+  
+  .guide-section {
+    padding: 1rem;
+  }
+}

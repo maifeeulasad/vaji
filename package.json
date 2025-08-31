@@ -6,6 +6,8 @@
   "author": "Maifee Ul Asad<maifeeulasad@gmail.com>",
   "license": "MIT",
   "packageManager": "pnpm@10.8.0",
+  "main": "dist/vite-react-live-editor.js",
+  "types": "dist/vite-react-live-editor.d.ts",
   "scripts": {
     "build": "rm -rf dist && tsc"
   },
