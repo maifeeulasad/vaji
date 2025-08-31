@@ -8,5 +8,5 @@ export default defineConfig({
     react(),
     viteReactLiveEditor({ isEditable: true })
   ],
-  base: './vaji/',
+  base: '/vaji/',
 })
